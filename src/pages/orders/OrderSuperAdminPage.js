@@ -38,6 +38,7 @@ export default function OrderSuperAdminPage() {
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/orders`)
       .then(res => res.json())
+      
       .then(res => setOrders(res.data));
   }, []);
   const dispatch = useDispatch();

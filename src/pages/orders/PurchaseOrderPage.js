@@ -31,6 +31,10 @@ export default function PurchaseOrderPage() {
         modal_nested: false,
         backdrop: true,
     });
+    const [vouchers, setVouchers] = useState([]);
+    const [voucherId, setVoucherId] = useState();
+    const [acceptedWeight, setAcceptedDate] = useState(0);
+    const [netQty,setNetQty] = useState(0);
 
     const toggle = () => {
         return setModalState({
@@ -66,7 +70,9 @@ export default function PurchaseOrderPage() {
 
     const [quantityData, setQuantityData] = useState({
         billingWeight: 0,
-        kantaWeight: 0
+        kantaWeight: 0,
+        qualityClaimPercent: '',
+        qualityClaim: ''
     });
 
     const [freightAdd, setFrieghtAdd] = useState(0);
@@ -76,24 +82,24 @@ export default function PurchaseOrderPage() {
 
     const handleQuantityChange = (e) => {
         const { name, value } = e.target;
-        let minQty = addFields.qty
-        if (name === "billingWeight") {
-            let newValue = value ? value : 0;
-            minQty = Math.min(Number(newValue), Number(quantityData.kantaWeight))
+        // let minQty = addFields.qty
+        // if (name === "billingWeight") {
+        //     let newValue = value ? value : 0;
+        //     minQty = Math.min(Number(newValue), Number(quantityData.kantaWeight))
 
-        }
-        if (name === "kantaWeight") {
-            let newValue = value ? value : 0;
-            minQty = Math.min(Number(quantityData.billingWeight), Number(newValue))
+        // }
+        // if (name === "kantaWeight") {
+        //     let newValue = value ? value : 0;
+        //     minQty = Math.min(Number(quantityData.billingWeight), Number(newValue))
 
-        }
-        setAddFields(() => {
-            return {
-                ...addFields,
-                qty: minQty
+        // }
+        // setAddFields(() => {
+        //     return {
+        //         ...addFields,
+        //         qty: minQty
 
-            }
-        })
+        //     }
+        // })
         setQuantityData(() => {
             return {
                 ...quantityData,
@@ -150,8 +156,21 @@ export default function PurchaseOrderPage() {
             });
         viewItem();
         viewAdditionalFields();
-
+        getVouchers();
     }, []);
+
+    const getVouchers = async () => {
+      const res = await axios.get(`${'http://localhost:5000'}/api/voucher/viewVoucherDetails/${id}`);
+      console.log("my response",res.data.data)
+      setVouchers(res.data.data);
+
+    }
+    const updateVoucher = async (voucherId) => {
+      const res = await axios.get(`${'http://localhost:5000'}/api/voucher/addVoucherAdditionalData/${voucherId}`);
+      console.log("my response",res)
+      setVouchers(res.data.data);
+
+    }
     const addOptionalFields = async () => {
         await axios.post(`${'https://admin-backend-fjzy.onrender.com'}/api/orders/addFields/${id}`,
             optionalFields
@@ -171,7 +190,6 @@ export default function PurchaseOrderPage() {
             addFields
         );
         setOptionalFields(res.data.data[0])
-        console.log("my response", res);
     }
     const viewItem = async () => {
         const res = await axios.get(`${'https://admin-backend-fjzy.onrender.com'}/api/orders/viewItems/${id}`,
@@ -187,14 +205,15 @@ export default function PurchaseOrderPage() {
         setPurchase(oldPurchases);
     }
 
-    console.log(purchase, 'purchase state');
+    console.log(vouchers, 'purchase state');
 
     const addNewPurchase = () => {
         let newPurchase = {
-            productName: '',
+            
+            name: '',
             quantity: 0,
-            unit: 0,
-            price: 0
+            price: 0,
+            unit: 0
         };
         setPurchase(oldState => [...oldState, newPurchase]);
     }
@@ -202,9 +221,26 @@ export default function PurchaseOrderPage() {
 
 
     const savePurchase = (id) => {
-        axios.post(`${'https://admin-backend-fjzy.onrender.com'}/api/orders/createVoucher/${id}`, purchase).then(res => console.log(res));
+        console.log("purrrrr",purchase);
+        axios.post(`${'http://localhost:5000'}/api/voucher/addVoucherDetails/${id}`, purchase).then(res => console.log("my res",res));
         toast("Voucher data added Successfully");
 
+    }
+
+    const saveUpdateVoucher = (id) => {
+      axios.put(`${'http://localhost:5000'}/api/voucher/addVoucherAdditionalData/${voucherId}`, quantityData)
+      .then(res => console.log("my ressss",res))
+      .then(() => { 
+        toast("Voucher data updated Successfully");
+        getVouchers();
+        toggle();
+      })
+      .then(() => {
+        setNetQty()
+      });
+      
+
+      
     }
 
     const saveDeductions = async () => {
@@ -217,12 +253,19 @@ export default function PurchaseOrderPage() {
         toast("Deductions added Successfully");
     }
 
-    const setModalData = (pur) => {
+    const setModalData = (pur, id) => {
         toggle();
-        console.log(pur, 'pur data here');
+        setQuantityData({
+          billingWeight: pur.billingWeight,
+          kantaWeight: pur.kantaWeight,
+          qualityClaimPercent: pur.qualityClaimPercent,
+          qualityClaim: pur.qualityClaim
+          })
+          console.log(pur, 'pur data here');
+          setVoucherId(id);
     }
 
-    console.log("Purchase", purchase.length)
+    console.log("Vouchersss", vouchers)
     return (
         <div>
             <Card>
@@ -243,7 +286,7 @@ export default function PurchaseOrderPage() {
                                     <div class="col-sm-4">
                                         <Label style={{ fontWeight: "600" }}>Series : </Label>
                                         &nbsp; &nbsp;
-                                        {pur.productName}
+                                        {pur.name}
                                     </div>
                                     <div class="col-sm-4">
                                         <Label style={{ fontWeight: "600" }}>Date : </Label>
@@ -301,17 +344,19 @@ export default function PurchaseOrderPage() {
 
                         </thead>
 
-                        {purchase.length > 0 &&
+                        {vouchers.length > 0 &&
+                        <>
                             <tbody>
-                                {purchase.map((pur, idx) => (
+                                {vouchers.map((pur, idx) => (
+                                  <>
                                     <tr key={idx}>
                                         <td>
-                                            <Button onClick={() => setModalData(pur)}>
+                                            <Button onClick={() => setModalData(pur, pur.id)}>
                                                 <EditIcon />
                                             </Button>
                                         </td>
                                         <th>
-                                            <input />
+                                        <input name='name' onChange={(e) => handlePurchaseChange(e, pur, idx)} value={pur.name}></input>
                                         </th>
                                         <th>
                                             <input name='quantity' onChange={(e) => handlePurchaseChange(e, pur, idx)} value={pur.quantity}></input>
@@ -326,8 +371,116 @@ export default function PurchaseOrderPage() {
                                             <input value={pur.price * pur.quantity}></input>
                                         </th>
                                     </tr>
+                                    <Modal
+                                    isOpen={modalState.modal}
+                                    toggle={toggle}
+                                    >
+                                    <ModalHeader toggle={toggle}>
+                                    Voucher Details
+                                    </ModalHeader>
+                                    <ModalBody>
+                                    <Form>
+                                      <FormGroup>
+                                        <Label for="qty">Billing Weight (Quantity in QTL)</Label>
+                                        <Input
+                                          type="number"
+                                          name="billingWeight"
+                                          placeholder="Enter Billing Weight"
+                                          value={quantityData.billingWeight}
+                                          onChange={(e) => handleQuantityChange(e)}
+                    
+                                        />
+                                      </FormGroup>
+                                      <FormGroup>
+                                        <Label for="qty">Kanta Weight</Label>
+                                        <Input
+                                          type="number"
+                                          name="kantaWeight"
+                                          placeholder="Enter Kanta Weight"
+                                          value={quantityData.kantaWeight}
+                                          onChange={(e) => handleQuantityChange(e)}
+                    
+                                        />
+                                      </FormGroup>
+                                    
+                                      {/* <FormGroup>
+                                        <Label for="qty">Accepted Weight</Label>
+                                        <Input
+                                          type="number"
+                                          name="kantaWeight"
+                                          placeholder="Enter Kanta Weight"
+                                          value={addFields.qty}
+                                          onChange={handleItemChange}
+                                        />
+                                      </FormGroup> */}
+                                      <>
+                                       
+                                      
+                                      {/* <FormGroup>
+                                        <Label for="bardanaClaim">Bardana Claim</Label>
+                                        <Input
+                                          type="text"
+                                          name="bardanaClaim"
+                                          placeholder="Enter Bardana Claim"
+                                          value={quantityData.bardanaClaim}
+                                          onChange={(e) => handleQuantityChange(e)}
+                    
+                                        />
+                                        
+                                      
+                                      </FormGroup> */}
+                                     
+                                      <FormGroup>
+                                        <Label for="qualityClaimPercent">Quality Claim %</Label>
+                                        <Input
+                                          type="number"
+                                          name="qualityClaimPercent"
+                                          placeholder="Enter Quality Claim %"
+                                          value={quantityData.qualityClaimPercent}
+                                          onChange={(e) => handleQuantityChange(e)}
+                    
+                                        />
+                                      </FormGroup>
+                                      <FormGroup>
+                                        <Label for="qualityClaim">Quality Claim</Label>
+                                        <Input
+                                          type="number"
+                                          name="qualityClaim"
+                                          placeholder="Enter Quantity"
+                                          value={quantityData.qualityClaim}
+                                          onChange={(e) => handleQuantityChange(e)}
+                    
+                                        />
+                                      </FormGroup>
+                                      </>
+                                      
+                                      {/* <FormGroup check row>
+                                        <Col sm={{ size: 10, offset: 2 }}>
+                                          <Button onClick={updateVoucher}>Submit</Button>
+                                        </Col>
+                                      </FormGroup> */}
+                                    </Form>
+                                  
+                                        <br />
+                                    </ModalBody>
+                                    <ModalFooter>
+                                        <Button
+                                            color="primary"
+                                            onClick={() => saveUpdateVoucher(pur.id)}>
+                                            {/* submit data in state */}
+                                            Save
+                                        </Button>{' '}
+                                        <Button
+                                            color="secondary"
+                                            onClick={() => toggle()}>
+                                            Cancel
+                                        </Button>
+                                    </ModalFooter>
+                                </Modal>
+                                </>
                                 ))}
                             </tbody>
+                             </>
                         }
 
                     </table>
@@ -337,7 +490,7 @@ export default function PurchaseOrderPage() {
                         </Col>
                         <Col md="3">
                             <button style={{ marginRight: "20px" }} onClick={() => addNewPurchase()} className='btn btn-primary'>Add New</button>
-                            <button onClick={() => savePurchase()} className='btn btn-primary'>Save</button>
+                            <button onClick={() => savePurchase(id)} className='btn btn-primary'>Save</button>
                         </Col>
                         <Col md="1">
                         </Col>
@@ -346,32 +499,7 @@ export default function PurchaseOrderPage() {
                 </CardBody>
             </Card>
             {/* modal start here  */}
-            <Modal
-                isOpen={modalState.modal}
-                toggle={toggle}
-            >
-                <ModalHeader toggle={toggle}>
-                    Modal title
-                </ModalHeader>
-                <ModalBody>
-                    Form creta here
-                    <br />
-                </ModalBody>
-                <ModalFooter>
-                    <Button
-                        color="primary"
-                        onClick={() => toggle()}>
-                        {/* submit data in state */}
-                        Do Something
-                    </Button>{' '}
-                    <Button
-                        color="secondary"
-                        onClick={() => toggle()}>
-                        Cancel
-                    </Button>
-                </ModalFooter>
-            </Modal>
-
+            
             <br />
             <ToastContainer />
         </div>

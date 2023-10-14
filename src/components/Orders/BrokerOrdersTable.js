@@ -29,6 +29,7 @@ const OrdersTable = ({ headers, usersData, ...restProps }) => {
     history.push(`/purchase/${id}`)
   }
 
+  console.log("Userdata", usersData);
 
   return (
     <Table responsive hover {...restProps}>
